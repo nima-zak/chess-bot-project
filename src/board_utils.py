@@ -1,4 +1,3 @@
-# board_utils.py
 
 def generate_initial_board():
     """
