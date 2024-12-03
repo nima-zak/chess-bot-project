@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 from io import StringIO
-from src.board_utils import generate_initial_board, print_board
+from src.board_utils import *
 
 class TestBoardUtils(unittest.TestCase):
     def test_generate_initial_board(self):
@@ -294,6 +294,43 @@ def test_generate_king_moves():
         (4, 2), (4, 3), (4, 4)  # Bottom-right (can capture black pawn)
     ]
     assert sorted(moves) == sorted(expected_moves)
+
+    def setUp(self):
+        """
+        Set up an initial chess board for testing.
+        """
+        self.board = generate_initial_board()
+
+    def test_generate_initial_board(self):
+        """
+        Test the initial board setup.
+        """
+        self.assertEqual(self.board[0], ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'])
+        self.assertEqual(self.board[7], ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'])
+        self.assertEqual(self.board[1], ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'])
+        self.assertEqual(self.board[6], ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'])
+        self.assertEqual(self.board[2], ['.', '.', '.', '.', '.', '.', '.', '.'])
+
+    def test_generate_legal_moves_pawn(self):
+        """
+        Test pawn moves generation.
+        """
+        moves = generate_legal_moves(self.board, "white")
+        # White pawns should have two moves each initially
+        self.assertIn(((6, 0), (5, 0)), moves)
+        self.assertIn(((6, 0), (4, 0)), moves)
+
+    def test_make_move(self):
+        """
+        Test making a move on the chess board.
+        """
+        new_board = make_move(self.board, (6, 0), (4, 0))
+        self.assertEqual(new_board[4][0], 'P')
+        self.assertEqual(new_board[6][0], '.')
+
+
+if __name__ == '__main__':
+    unittest.main()
 
     print("All tests for generate_king_moves passed!")
 

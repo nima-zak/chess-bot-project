@@ -35,6 +35,48 @@ if __name__ == "__main__":
     print_board(chess_board)
 
 
+    def generate_legal_moves(board, player):
+        """
+        Generate all legal moves for a given player.
+
+        Args:
+            board (list): The 8x8 chess board represented as a matrix.
+            player (str): The player ("white" or "black").
+
+        Returns:
+            list: A list of all legal moves as ((start_row, start_col), (end_row, end_col)).
+        """
+        moves = []
+        for row in range(8):
+            for col in range(8):
+                piece = board[row][col]
+                if (player == "white" and piece.isupper()) or (player == "black" and piece.islower()):
+                    position = (row, col)
+
+                    # Determine the moves based on the piece type
+                    if piece.lower() == 'p':  # Pawn
+                        piece_moves = generate_pawn_moves(board, position, player)
+                    elif piece.lower() == 'r':  # Rook
+                        piece_moves = generate_rook_moves(board, position, player)
+                    elif piece.lower() == 'n':  # Knight
+                        piece_moves = generate_knight_moves(board, position, player)
+                    elif piece.lower() == 'b':  # Bishop
+                        piece_moves = generate_bishop_moves(board, position, player)
+                    elif piece.lower() == 'q':  # Queen
+                        piece_moves = generate_queen_moves(board, position, player)
+                    elif piece.lower() == 'k':  # King
+                        piece_moves = generate_king_moves(board, position, player)
+                    else:
+                        piece_moves = []
+
+                    # Add moves to the list as ((start_row, start_col), (end_row, end_col))
+                    for move in piece_moves:
+                        moves.append((position, move))
+        return moves
+
+
+
+
     # Function to generate legal moves for a pawn
     def generate_pawn_moves(board, position, player):
         """
@@ -246,4 +288,23 @@ def generate_king_moves(board, position, player):
                 moves.append((r, c))
 
     return moves
+
+def make_move(board, start_pos, end_pos):
+    """
+    Make a move on the chess board.
+
+    Args:
+        board (list): The 8x8 chess board represented as a matrix.
+        start_pos (tuple): The starting position of the piece (row, col).
+        end_pos (tuple): The ending position of the piece (row, col).
+
+    Returns:
+        list: The updated chess board after the move.
+    """
+    start_row, start_col = start_pos
+    end_row, end_col = end_pos
+    board[end_row][end_col] = board[start_row][start_col]
+    board[start_row][start_col] = '.'  # Empty the starting position
+    return board
+
 
