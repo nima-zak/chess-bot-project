@@ -167,6 +167,87 @@ def make_move(board, start_pos, end_pos):
     board[start_row][start_col] = '.'  # Empty the starting position
     return board
 
+#----------------------------------------------------------------
+def is_move_legal(board, move, player_color):
+    """
+    Check if a given move is legal according to chess rules.
+    This placeholder just demonstrates where you'd implement logic for:
+    - Piece movement rules
+    - Checks and checkmates
+    - Castling conditions
+    - En passant
+    - Pawn promotion
+    """
+
+    start_pos, end_pos = move
+
+    if start_pos == end_pos:
+        return False
+
+    piece = board.get(start_pos, '.')
+    if piece == '.' or not _piece_color_matches(piece, player_color):
+        # No piece of the current player at start_pos
+        return False
+
+    # Placeholder logic:
+    # Here you would call functions to verify:
+    # - The piece can move in that pattern
+    # - The path is not blocked (for sliding pieces)
+    # - The king is not left in check after the move
+    # - Special moves like castling, en passant, promotion, etc.
+
+    # For now, return True as a placeholder if start!=end and piece belongs to player
+    return True
+
+def apply_move(board, move, player_color):
+    """
+    Update the board state according to the given move.
+    Implement logic for:
+    - Regular moves
+    - Captures
+    - Castling: move both king and rook
+    - En passant: remove captured pawn
+    - Pawn promotion: replace pawn with chosen piece
+    """
+
+    start_pos, end_pos = move
+    piece = board.get(start_pos, '.')
+    board[start_pos] = '.'
+
+    # Placeholder: Check if this is a promotion (just a naive check)
+    if piece.upper() == 'P' and (end_pos[1] == '8' and player_color == 'white'):
+        # Promote to a queen by default
+        board[end_pos] = 'Q'
+    elif piece.upper() == 'P' and (end_pos[1] == '1' and player_color == 'black'):
+        # Promote to a queen by default for black
+        board[end_pos] = 'q'
+    else:
+        board[end_pos] = piece
+
+    # For castling (as an example):
+    # If the move is king side castling (e1 -> g1) for white:
+    # you'd also move the rook from h1 to f1.
+    # Similar logic for black and queen side castling.
+
+    # For en passant:
+    # If a pawn moves diagonally into an empty square (e.g., e5), remove the captured pawn behind it.
+
+    return board
+
+def _piece_color_matches(piece, color):
+    """
+    Return True if piece matches the color:
+    - White pieces: Uppercase
+    - Black pieces: Lowercase
+    """
+    if color == 'white' and piece.isupper():
+        return True
+    if color == 'black' and piece.islower():
+        return True
+    return False
+#----------------------------------------------------------------
+
+
 if __name__ == "__main__":
     # This block is only for direct testing of this file
     chess_board = generate_initial_board()
