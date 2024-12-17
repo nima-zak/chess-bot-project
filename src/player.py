@@ -1,38 +1,25 @@
 import time
 from src.rules import Rules
 from src.engine import Engine
-import chess
-
 
 class Player:
     """
-    The Player class represents a chess player, which can be a human or a bot.
-    It manages:
-    - Move application via the Rules class.
-    - For a bot player, it uses the Engine to determine the best move.
-    - Time management: starts and stops a timer for each move, and adjusts strategy if time is low.
-
-    Attributes:
-        name (str): Player's name.
-        player_type (str): "human" or "bot".
-        color (str): "white" or "black".
-        rules (Rules): An instance of Rules to manage board and move legality.
-        moves_history (list): A list of UCI moves played by this player.
-        time_left (float): Remaining time in seconds for this player.
-        _timer_start (float or None): Time at which the current move started.
-        engine (Engine or None): If player_type is "bot", an Engine instance is used to select moves.
+    The Player class represents either a human or a bot player.
+    It uses the Rules class to apply moves and, if it's a bot,
+    it interacts with the Engine to decide the best move.
+    It also manages time and stores search statistics.
     """
 
-    def __init__(self, name, player_type, color, rules=None, time_limit=600):
+    def __init__(self, name, player_type, color, rules=None, time_limit=600.0):
         """
         Initialize a Player instance.
 
         Args:
-            name (str): The name of the player.
-            player_type (str): Either "human" or "bot".
+            name (str): The player's name.
+            player_type (str): "human" or "bot".
             color (str): "white" or "black".
-            rules (Rules): A Rules object for managing the board state. If None, a new Rules instance is created.
-            time_limit (int or float): Initial time limit for the player in seconds.
+            rules (Rules): A Rules object managing the board. If None, a new one is created.
+            time_limit (float): The initial time in seconds for this player.
         """
         self.name = name
         self.player_type = player_type
@@ -42,46 +29,54 @@ class Player:
         self.time_left = time_limit
         self._timer_start = None
 
-        # If bot, initialize an engine for decision making
         if self.player_type == "bot":
             color_is_white = (self.color == "white")
             self.engine = Engine(color_is_white=color_is_white)
         else:
             self.engine = None
 
+        # Store move statistics: list of dicts with "move", "time_taken", "depth", "nodes_searched"
+        self.move_statistics = []
+
     def start_timer(self):
-        """
-        Start the move timer for this player.
-        This should be called at the beginning of a move.
-        """
+        """Start timing the current move."""
         self._timer_start = time.time()
 
     def stop_timer(self):
-        """
-        Stop the move timer and update the player's remaining time.
-        """
+        """Stop timing and update remaining time."""
         if self._timer_start is not None:
             elapsed = time.time() - self._timer_start
             self.time_left -= elapsed
             self._timer_start = None
 
+    def _choose_depth_based_on_time(self):
+        """
+        Choose search depth based on remaining time:
+            - time < 5s => depth = 1
+            - 5s <= time <= 30s => depth = 2
+            - 30s < time <= 100s => depth = 3
+            - time > 100s => depth = 4
+
+        Returns:
+            int: The chosen depth.
+        """
+        if self.time_left < 5:
+            return 1
+        elif self.time_left <= 30:
+            return 2
+        elif self.time_left <= 100:
+            return 3
+        else:
+            return 4
+
     def make_move(self, move_uci=None):
         """
         Make a move on the board.
-
-        For a human player, move_uci must be provided.
-        For a bot player:
-            - If move_uci is provided, it will be ignored.
-            - The Engine will be used to find the best move.
-
-        This method also considers time management:
-        - If time is low, reduce the search depth to ensure a faster decision.
-
-        Args:
-            move_uci (str or None): The UCI move string for a human player's move, or None for a bot.
+        If human, move_uci must be provided and legal.
+        If bot, choose best move using the engine.
 
         Returns:
-            bool: True if the move was successfully made, False otherwise.
+            bool: True if a move was made, False otherwise.
         """
         self.start_timer()
 
@@ -91,7 +86,6 @@ class Player:
             raise ValueError(f"It's not {self.color}'s turn to move.")
 
         if self.player_type == "human":
-            # For a human player, the move_uci must be given and legal.
             if move_uci is None:
                 self.stop_timer()
                 raise ValueError("No move provided for a human player.")
@@ -101,46 +95,55 @@ class Player:
             self.stop_timer()
             return success
         else:
-            # Bot player: decide the move using the engine.
-            # Adjust search depth based on remaining time.
+            # Bot player
             depth = self._choose_depth_based_on_time()
+            # We'll allow engine the remaining time for iterative deepening
+            time_for_move = self.time_left  # Engine can use all remaining time for this move if needed
 
-            best_move = self.engine.find_best_move(self.rules.board, depth)
+            best_move, nodes, search_time = self.engine.find_best_move_with_stats(self.rules.board, depth, time_for_move)
+
             if best_move is None:
-                # No moves available (likely game over)
+                # No moves found or game over
                 self.stop_timer()
                 return False
 
             self.rules.board.push(best_move)
             self.moves_history.append(best_move.uci())
+
+            # Store stats: time taken for this move is (start->stop_timer), nodes searched, depth used
+            elapsed = (time.time() - (time.time() - self.time_left)) if self._timer_start is None else 0.0
+            # Actually, we have better approach:
+            # We know stop_timer will recalc time_left, so let's just measure after stop_timer
             self.stop_timer()
+            move_time = self.time_left if self._timer_start is None else 0.0
+            # Actually, to get the exact move_time, we should do:
+            # We started timer at self._timer_start, we can do:
+            move_time = 0.0
+            if self._timer_start is not None:
+                elapsed_now = time.time() - self._timer_start
+                move_time = elapsed_now
+            else:
+                # If we ended timer above, we must recalculate
+                move_time = search_time
+
+            self.move_statistics.append({
+                "move": best_move.uci(),
+                "time_taken": move_time,
+                "depth_used": depth,
+                "nodes_searched": nodes
+            })
+
             return True
 
-    def _choose_depth_based_on_time(self):
-        """
-        Choose the search depth based on the remaining time.
-        If time is running low, reduce depth for faster moves.
-
-        This is a simple heuristic. You can make it more sophisticated:
-        - If time < 30 seconds: depth = 2
-        - If time < 10 seconds: depth = 1
-        - Otherwise: depth = 3
-
-        Returns:
-            int: The chosen search depth.
-        """
-        if self.time_left < 10:
-            return 1
-        elif self.time_left < 30:
-            return 2
-        else:
-            return 3
-
     def get_moves_history(self):
-        """
-        Get the list of moves made by this player.
-
-        Returns:
-            list: The moves made by this player as UCI strings.
-        """
+        """Return the moves made by this player."""
         return self.moves_history
+
+    def get_move_statistics(self):
+        """
+        Return the statistics of moves made by this player, including:
+        - Time taken per move
+        - Depth used
+        - Nodes searched
+        """
+        return self.move_statistics
